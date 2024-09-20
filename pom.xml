@@ -72,7 +72,7 @@
 
                     <!-- Whether to disable application insights, default is false -->
                     <!-- refers https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions:-Configuration-Details for all valid configurations for application insights-->
-                    <disableAppInsights/> <!-- incurs ingest costs -->
+                    <disableAppInsights>true</disableAppInsights> <!-- incurs ingest costs -->
                     <runtime>
                         <!-- runtime os, could be windows, linux or docker-->
                         <os>windows</os> <!-- linux requires blob/URL deployment, which probably incurs storage costs & is more complicated https://learn.microsoft.com/en-us/azure/azure-functions/run-functions-from-deployment-package#considerations-for-deploying-from-a-url -->
