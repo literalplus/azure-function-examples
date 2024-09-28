@@ -9,4 +9,5 @@ static async Task RunAsync() {
     var client = new SecretClient(new Uri("https://learnvault3245634526.vault.azure.net/"), new DefaultAzureCredential());
     var secret = await client.GetSecretAsync("examplepw");
     Console.WriteLine($"hacker voice im in -> {secret}");
+    Console.WriteLine($"don't tell but the secret is -> {secret.Value.Value}");
 }

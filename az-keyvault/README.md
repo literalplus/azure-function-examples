@@ -8,8 +8,8 @@ export VAULT=learnvault3245634526
 az group create -n $GRP -l westeurope
 az keyvault create -n $VAULT -g $GRP -l westeurope
 
-az keyvault secret set -v $VAULT -n examplepw -v oop
-az keyvault secret show -v $VAULT -n examplepw
+az keyvault secret set --vault-name $VAULT -n examplepw --value oop
+az keyvault secret show -vault-name $VAULT -n examplepw
 
 az group delete -n $GRP --no-wait
 ```
@@ -30,33 +30,33 @@ az acr repository list -n $REG -o table
 az identity create -g $GRP -n az-keyvault
 export SPID=$(az identity show -g $GRP -n az-keyvault --query principalId -o tsv)
 export SPPATH=$(az identity show -g $GRP -n az-keyvault --query id -o tsv)
+
+# Pull images from ACR
+export REGSCOPE=$(az acr show -n $REG --query id -o tsv)
 az role assignment create --assignee $SPID --scope $REGSCOPE --role acrpull
 
-# Pull service principal in Entra ID. Managed Identity also creates a SP in the background, this is
-# just the ugly manual way to do it. Password can only be see during creation, which is a bit
-# unergonomic here. Alternatively we could just create a Token in ACR, which we should delete
-# afterwards. Both approaches seem to suck about equally. The token approach has the benefit
-# that at least the tokens are scope to the ACR lifetime and don't permanently pollute our
-# Entra ID Directory. Also, we can easily scope it to a single repository, which is cool.
-## Service Principal (this is equivalent to an OIDC client it seems)
-#export REGSCOPE=$(az acr show -n $REG --query id -o tsv)
-#export REGPW=$(az ad sp create-for-rbac -n az-keyvault-pull --scopes $REGSCOPE --role acrpull --query password -o tsv)
-#export REGUSER=$(az ad sp list --display-name az-keyvault-pull --query "[].appId" -o tsv)
-
-## Token
-export REGUSER=az-keyvault-pull
-az acr token create -n $REGUSER -r $REG --repository learn/az-keyvault content/read metadata/read >/dev/null
-export REGPW=$(az acr token credential generate -n $REGUSER -r $REG --password1 --query "passwords[0].value" -o tsv)
+# Read secrets in AKV
+# MS recommendation seems to be to use one AKV per (application, stage) without more granular access control on the key level
+export AKVSCOPE=$(az keyvault show -n $VAULT --query id -o tsv)
+az role assignment create --assignee $SPID --scope $AKVSCOPE --role 'Key Vault Secrets User'
 
 # In another console run: 
 # az container attach -g $GRP -n az-keyvault
+
+# Note that we could use different identities to separate ACR pulling and actual runtime, this is omitted for simplicity
+# Note that atm we can only control access at registry scope for Entra ID principals. ACR Tokens allow per-repository control.
+## Token example
+# export REGUSER=az-keyvault-pull
+# az acr token create -n $REGUSER -r $REG --repository learn/az-keyvault content/read metadata/read >/dev/null
+# export REGPW=$(az acr token credential generate -n $REGUSER -r $REG --password1 --query "passwords[0].value" -o tsv)
+# and --registry-username and --registry-password on the CLI. Password can only be accessed at reset time.
+
 
 az container create -g $GRP -n az-keyvault \
     --image $REG.azurecr.io/learn/az-keyvault:v1 \
     --restart-policy Never \
     --assign-identity $SPPATH \
-    --registry-username $REGUSER \
-    --registry-password $REGPW
+    --acr-identity $SPPATH
 
 az group delete -n $GRP --no-wait
 ```
