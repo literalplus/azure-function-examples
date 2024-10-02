@@ -14,7 +14,7 @@ az keyvault secret show -vault-name $VAULT -n examplepw
 az group delete -n $GRP --no-wait
 ```
 
-## application with system-managed identity
+## application with user-managed identity
 
 ```bash
 export GRP=grp-akv
@@ -24,14 +24,13 @@ az acr create -g $GRP -n $REG --sku Basic
 az acr build --image learn/az-keyvault:v1 --registry $REG .
 az acr repository list -n $REG -o table
 
-# Managed identity for the RUNNING container. It doesn't seem possible to use the same principal
-# to pull from ACR, since Container Instances needs a username/pw combo to pull from the registry
-# and doesn't seem to support pulling with a managed identity........................
+# User-managed identity for the RUNNING container
+# Note that we could use a system-managed identity with --scope and --assign-identity (no param) in a similar way
 az identity create -g $GRP -n az-keyvault
 export SPID=$(az identity show -g $GRP -n az-keyvault --query principalId -o tsv)
 export SPPATH=$(az identity show -g $GRP -n az-keyvault --query id -o tsv)
 
-# Pull images from ACR
+# We use the same identity also for image pulling, but this could in theory be separate (or shared with other things)
 export REGSCOPE=$(az acr show -n $REG --query id -o tsv)
 az role assignment create --assignee $SPID --scope $REGSCOPE --role acrpull
 
